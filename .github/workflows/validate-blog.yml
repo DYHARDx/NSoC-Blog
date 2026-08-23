@@ -1,0 +1,36 @@
+name: Validate Blog MDX
+
+on:
+  pull_request:
+    paths:
+      - 'posts/**/*.mdx'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install -g gray-matter-cli
+
+      - name: Validate Frontmatter
+        run: |
+          for file in posts/*.mdx; do
+            if [ -f "$file" ]; then
+              echo "Validating $file..."
+              # Basic checks for frontmatter fields
+              grep -q "title:" "$file" || { echo "Missing title in $file"; exit 1; }
+              grep -q "description:" "$file" || { echo "Missing description in $file"; exit 1; }
+              grep -q "author:" "$file" || { echo "Missing author in $file"; exit 1; }
+              grep -q "date:" "$file" || { echo "Missing date in $file"; exit 1; }
+              grep -q "category:" "$file" || { echo "Missing category in $file"; exit 1; }
+            fi
+          done
+        shell: bash

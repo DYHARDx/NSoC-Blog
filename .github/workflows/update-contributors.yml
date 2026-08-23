@@ -1,0 +1,58 @@
+name: Update Contributors
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  update-contributors:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Calculate Contributors
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: pulls } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed',
+              per_page: 100
+            });
+            
+            const mergedPulls = pulls.filter(pr => pr.merged_at);
+            const contributorsMap = {};
+            
+            mergedPulls.forEach(pr => {
+              const username = pr.user.login;
+              if (!contributorsMap[username]) {
+                contributorsMap[username] = {
+                  username: username,
+                  name: pr.user.login,
+                  avatarUrl: pr.user.avatar_url,
+                  mergedPRs: 0,
+                  publishedBlogs: 0
+                };
+              }
+              contributorsMap[username].mergedPRs += 1;
+            });
+            
+            const contributors = Object.values(contributorsMap).sort((a, b) => b.mergedPRs - a.mergedPRs);
+            const fs = require('fs');
+            
+            fs.writeFileSync('contributors.json', JSON.stringify({
+              updatedAt: new Date().toISOString(),
+              contributors: contributors
+            }, null, 2));
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add contributors.json
+          git commit -m "chore: update contributors.json" || echo "No changes to commit"
+          git push
